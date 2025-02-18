@@ -10,7 +10,7 @@ package "DomainTheory" where
   ]
 
 require "nomeata" / loogle @
-  git "f9d2b41c350db78179d1b8bbabf0c44bf30c138b"
+  git "d56dbe9a1637c1160862deb9da8d621682e46013"
 
 require "leanprover-community" / mathlib @
   git "v4.17.0-rc1"
