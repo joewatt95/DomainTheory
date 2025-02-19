@@ -5,6 +5,13 @@ import Mathlib.SetTheory.Ordinal.FixedPointApproximants
 
 open Ordinal OrdinalApprox OmegaCompletePartialOrder OrderHom
 
+lemma biSup_eq_sSup {S : Set α} {f : α → β} [CompleteLattice β] :
+  ⨆ x ∈ S, f x = sSup {f x | x ∈ S} := calc
+      ⨆ x ∈ S, f x
+  _ = ⨆ x : {x // x ∈ S}, f x := iSup_subtype'
+  _ = sSup {f x | x ∈ S}      := by
+    simp only [←sSup_range, Set.range, Subtype.exists, exists_prop]
+
 instance [inst : CompleteLattice α] : Lean.Order.CCPO α :=
   let {le, le_refl, le_trans, le_antisymm, sSup, le_sSup, sSup_le, ..} := inst
   { rel := le
@@ -16,8 +23,7 @@ instance [inst : CompleteLattice α] : Lean.Order.CCPO α :=
       { mp h' y (_ : c y) :=
           have : le y <| sSup c := le_sSup _ _ ‹c y›
           show le y x from le_trans _ _ _ this h'
-        mpr := sSup_le _ _ }
-  }
+        mpr := sSup_le _ _ } }
 
 variable
   [CompleteLattice α] {f : α →o α}
@@ -27,8 +33,8 @@ variable
 example [CompleteLattice β] {f : α → β} :
   Monotone f ↔ Lean.Order.monotone f := .rfl
 
-lemma lfpApprox_add_one_eq :
-  ∀ ord, lfpApprox f ⊥ (ord + 1) = f (lfpApprox f ⊥ ord) :=
+lemma lfpApprox_add_one_bot :
+  ∀ o, lfpApprox f ⊥ (o + 1) = f (lfpApprox f ⊥ o) :=
   lfpApprox_add_one _ _ <| OrderBot.bot_le _
 
 lemma lfpApprox_ofNat_eq_Nat_iterate :
@@ -36,23 +42,23 @@ lemma lfpApprox_ofNat_eq_Nat_iterate :
   | 0 => by unfold lfpApprox; simp
   | n + 1 => calc
       lfpApprox f ⊥ (n + 1)
-  _ = f (lfpApprox f ⊥ n)  := lfpApprox_add_one_eq _
+  _ = f (lfpApprox f ⊥ n)  := lfpApprox_add_one_bot _
   _ = f (f^[n] ⊥)          := by rw [lfpApprox_ofNat_eq_Nat_iterate]
   _ = f^[n + 1] ⊥          := by rw [Function.iterate_succ_apply']
 
 lemma lfp_eq_lfpApprox_ord_of_fixed_point
-  (_ : f (lfpApprox f ⊥ ord) = lfpApprox f ⊥ ord) :
-  lfp f = lfpApprox f ⊥ ord :=
-  have ⟨ord', (_ : lfpApprox f ⊥ ord' = lfp f)⟩ :=
+  (_ : f (lfpApprox f ⊥ o) = lfpApprox f ⊥ o) :
+  lfp f = lfpApprox f ⊥ o :=
+  have ⟨o', (_ : lfpApprox f ⊥ o' = lfp f)⟩ :=
     OrdinalApprox.lfp_mem_range_lfpApprox f
 
   calc
       lfp f
-  _ = lfpApprox f ⊥ ord' := Eq.symm ‹_›
-  _ = lfpApprox f ⊥ ord :=
+  _ = lfpApprox f ⊥ o' := Eq.symm ‹_›
+  _ = lfpApprox f ⊥ o :=
     have :
-      (ord' ≤ ord → lfpApprox f ⊥ ord = lfpApprox f ⊥ ord') ∧
-      (ord' ≥ ord → lfpApprox f ⊥ ord' = lfpApprox f ⊥ ord) := by
+      (o' ≤ o → lfpApprox f ⊥ o = lfpApprox f ⊥ o') ∧
+      (o' ≥ o → lfpApprox f ⊥ o' = lfpApprox f ⊥ o) := by
       refine ⟨?_, ?_⟩
       repeat
         intro
@@ -62,39 +68,46 @@ lemma lfp_eq_lfpApprox_ord_of_fixed_point
         . simp_all only [Function.mem_fixedPoints, Function.IsFixedPt, map_lfp]
 
     match le_total _ _ with
-    | .inl (_ : ord' ≤ ord) | .inr (_ : ord' ≥ ord) =>
+    | .inl (_ : o' ≤ o) | .inr (_ : o' ≥ o) =>
       by simp_all only [map_lfp, forall_const, ge_iff_le]
 
--- This proof is annoying as we need to juggle casting between `ℕ` and `Ordinal`
+lemma lfpApprox_limit_eq_sup_lfpApprox (_ : Order.IsSuccLimit o) :
+  lfpApprox f ⊥ o = ⨆ o' < o, lfpApprox f ⊥ o' :=
+  Eq.symm <| calc
+      ⨆ o' < o, lfpApprox f ⊥ o'
+  _ = sSup {lfpApprox f ⊥ o' | o' < o} := biSup_eq_sSup
+
+  _ = sSup {f (lfpApprox f ⊥ o') | o' < o} :=
+    le_antisymm
+      (sSup_le_sSup_of_forall_exists_le <| by
+        simp only [Set.mem_setOf_eq, exists_exists_and_eq_and, forall_exists_index, and_imp, forall_apply_eq_imp_iff₂]
+        refine λ o' (_ : o' < o) ↦
+          ⟨o' + 1, Order.IsSuccLimit.add_one_lt ‹_› ‹_›, ?_⟩
+
+        have : lfpApprox f ⊥ o' ≤ lfpApprox f ⊥ (o' + 1) :=
+          lfpApprox_monotone _ _ <| Ordinal.le_add_right _ _
+
+        calc
+            lfpApprox f ⊥ o'
+        _ ≤ lfpApprox f ⊥ (o' + 1)      := this
+        _ = f (lfpApprox f ⊥ o')        := lfpApprox_add_one_bot _
+        _ ≤ f (lfpApprox f ⊥ <| o' + 1) := f.monotone' this) <|
+
+      sSup_le_sSup λ a
+        ⟨o', (_ : o' < o), (_ : f (lfpApprox f ⊥ o') = a)⟩ ↦
+        ⟨o' + 1, Order.IsSuccLimit.add_one_lt ‹_› ‹_›, by rwa [lfpApprox_add_one_bot]⟩
+
+  _ = lfpApprox f ⊥ o := by
+    conv => rhs; unfold lfpApprox
+    simp only [exists_prop, Set.union_singleton, sSup_insert, bot_le, sup_of_le_right]
+
 lemma lfpApprox_omega0_eq_sSup_lfpApprox_Nat :
   lfpApprox f ⊥ ω = ⨆ n : ℕ, lfpApprox f ⊥ n :=
-  Eq.symm <| calc
-      sSup {lfpApprox f ⊥ n | n : ℕ}
-
-  _ = sSup {a | a = lfpApprox f ⊥ 0 ∨ ∃ n : ℕ, a = lfpApprox f ⊥ (n + 1)} :=
-    congr_arg _ <| Set.ext λ _ ↦ by
-      simp only [Set.mem_setOf_eq, Nat.cast_add, Nat.cast_one, add_one_eq_succ]
-      rw [←Nat.or_exists_add_one]
-      aesop
-
-  _ = sSup ({lfpApprox f ⊥ 0} ∪ {f <| lfpApprox f ⊥ n | n : ℕ}) :=
-    congr_arg _ <|
-      have := lfpApprox_add_one_eq (f := f)
-      by aesop
-
-  _ = sSup {f <| lfpApprox f ⊥ n | n : ℕ} :=
-    have := calc
-          lfpApprox f ⊥ 0
-        ≤ lfpApprox f ⊥ 1     := lfpApprox_monotone _ _ <| Ordinal.zero_le _
-      _ = f (lfpApprox f ⊥ 0) := by rw [←lfpApprox_add_one_eq, zero_add]
-
-    have : lfpApprox f ⊥ 0 ≤ sSup {f <| lfpApprox f ⊥ n | n : ℕ} :=
-      le_sSup_of_le ⟨0, by simp only [Nat.cast_zero]⟩ this
-
-    by simp_all only [add_one_eq_succ, Set.singleton_union, sSup_insert, sup_of_le_right]
-
-  _ = lfpApprox f ⊥ ω := by
-    conv => rhs; unfold lfpApprox
+  calc
+      lfpApprox f ⊥ ω
+  _ = ⨆ o < ω, lfpApprox f ⊥ o := lfpApprox_limit_eq_sup_lfpApprox isLimit_omega0
+  _ = sSup {lfpApprox f ⊥ o | o < ω} := biSup_eq_sSup
+  _ = ⨆ n : ℕ, lfpApprox f ⊥ n := by
     aesop (add unsafe congr) (add norm lt_omega0)
 
 theorem fix_eq_order_lfp :
@@ -141,12 +154,12 @@ lemma fix_mem_range_lfpApprox :
 include omega_continuous in
 theorem kleene_fixed_point :
   lfp f = lfpApprox f ⊥ ω :=
-  let lfpApprox_Nat : Nat →o α :=
+  let lfpApproxNat : Nat →o α :=
     { toFun := lfpApprox f ⊥ ∘ λ n : ℕ ↦ (n : Ordinal)
       monotone' := by aesop
         (add unsafe [Monotone.comp, Nat.mono_cast, lfpApprox_monotone]) }
 
-  have : f (⨆ n, lfpApprox_Nat n) = ⨆ n, f (lfpApprox_Nat n) := by
+  have : f (⨆ n, lfpApproxNat n) = ⨆ n, f (lfpApproxNat n) := by
     simp_all only [
       ωScottContinuous_iff_map_ωSup_of_orderHom, Chain, ωSup, Chain.map,
       comp_coe, Function.comp_apply]
@@ -157,11 +170,11 @@ theorem kleene_fixed_point :
     _ = f (⨆ n : ℕ, lfpApprox f ⊥ n) := by rw [lfpApprox_omega0_eq_sSup_lfpApprox_Nat]
 
     _ = ⨆ n : ℕ, f (lfpApprox f ⊥ n) := by
-      simp_all only [coe_mk, Function.comp_apply, lfpApprox_Nat]
+      simp_all only [coe_mk, Function.comp_apply, lfpApproxNat]
 
     _ = ⨆ n : ℕ, lfpApprox f ⊥ (n + 1) :=
-      have := lfpApprox_add_one_eq (f := f)
-      by simp_all only [add_one_eq_succ, lfpApprox_Nat]
+      have := lfpApprox_add_one_bot (f := f)
+      by simp_all only [add_one_eq_succ, lfpApproxNat]
 
     _ = ⨆ n : ℕ, lfpApprox f ⊥ n :=
       le_antisymm
