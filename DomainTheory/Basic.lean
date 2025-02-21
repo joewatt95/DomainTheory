@@ -51,7 +51,6 @@ lemma lfp_eq_lfpApprox_ord_of_fixed_point
   lfp f = lfpApprox f ⊥ o :=
   have ⟨o', (_ : lfpApprox f ⊥ o' = lfp f)⟩ :=
     OrdinalApprox.lfp_mem_range_lfpApprox f
-
   calc
       lfp f
   _ = lfpApprox f ⊥ o' := Eq.symm ‹_›
@@ -65,11 +64,9 @@ lemma lfp_eq_lfpApprox_ord_of_fixed_point
         apply lfpApprox_eq_of_mem_fixedPoints
         . exact OrderBot.bot_le _
         . assumption
-        . simp_all only [Function.mem_fixedPoints, Function.IsFixedPt, map_lfp]
-
-    match le_total _ _ with
-    | .inl (_ : o' ≤ o) | .inr (_ : o' ≥ o) =>
-      by simp_all only [map_lfp, forall_const, ge_iff_le]
+        . simp_all only [Function.mem_fixedPoints_iff, map_lfp]
+    have := le_total o o'
+    by aesop
 
 lemma lfpApprox_limit_eq_sup_lfpApprox (_ : Order.IsSuccLimit o) :
   lfpApprox f ⊥ o = ⨆ o' < o, lfpApprox f ⊥ o' :=
