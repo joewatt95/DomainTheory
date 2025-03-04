@@ -13,7 +13,7 @@ require "nomeata" / loogle @
   git "d56dbe9a1637c1160862deb9da8d621682e46013"
 
 require "leanprover-community" / mathlib @
-  git "v4.17.0-rc1"
+  git "v4.17.0"
 
 @[default_target]
 lean_lib «DomainTheory» where
