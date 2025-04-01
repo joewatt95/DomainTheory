@@ -1,3 +1,4 @@
+import Duper
 import Loogle.Find
 
 import Mathlib.Topology.Order.ScottTopology
